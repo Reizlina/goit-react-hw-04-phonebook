@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import { useState, useEffect } from 'react';
 import { nanoid } from 'nanoid';
 import Notiflix from 'notiflix';
 import s from './Form.module.css';
@@ -8,36 +8,19 @@ import FormInput from './FormInput/FormInput';
 import Contacts from './Contacts/Contacts';
 import SearchContact from './SearchContact/SearchContact';
 
-class Form extends Component {
-  state = {
-    contacts: [],
-    filter: '',
-  };
+export default function Form() {
+  const [contacts, setContacts] = useState(() =>
+    JSON.parse(localStorage.getItem('contacts') ?? [])
+  );
+  const [filter, setFilter] = useState('');
 
-  componentDidUpdate(prevProps, prevState) {
-    if (prevState.contacts !== this.state.contacts) {
-      localStorage.setItem('contacts', JSON.stringify(this.state.contacts));
-    }
-  }
+  useEffect(() => {
+    localStorage.setItem('contacts', JSON.stringify(contacts));
+  }, [contacts]);
 
-  componentDidMount() {
-    const contactsFromStorage = localStorage.getItem('contacts');
-    const parsedContacts = JSON.parse(contactsFromStorage);
-    if (parsedContacts) {
-      this.setState({ contacts: parsedContacts });
-    }
-  }
+  const submitForm = ({ name, number }) => {
+    const nameOfContact = contacts.find(contact => contact.name === name);
 
-  findContact = e => {
-    this.setState(() => {
-      return { filter: e.target.value };
-    });
-  };
-
-  submitForm = ({ name, number }) => {
-    const nameOfContact = this.state.contacts.find(
-      contact => contact.name === name
-    );
     if (nameOfContact) {
       Notiflix.Notify.failure(`${name} is already in contacts`, {
         position: 'center-center',
@@ -47,52 +30,39 @@ class Form extends Component {
       });
       return;
     }
-    this.setState(prevState => {
-      return {
-        contacts: [
-          ...prevState.contacts,
-          { name: name, number: number, id: nanoid() },
-        ],
-      };
-    });
+
+    setContacts(prev => [
+      ...prev,
+      { name: name, number: number, id: nanoid() },
+    ]);
   };
 
-  filterContact = () => {
-    const { filter, contacts } = this.state;
+  const filterContact = () => {
     if (!filter) {
       return contacts;
     }
     return contacts.filter(({ name }) => {
-      const nameValue = name.toLowerCase();
-      return nameValue.includes(filter.toLowerCase());
+      return name.toLowerCase().includes(filter.toLowerCase());
     });
   };
 
-  deleteContact = idContact => {
-    this.setState(prevState => {
-      return {
-        contacts: prevState.contacts.filter(
-          contact => contact.id !== idContact
-        ),
-      };
-    });
+  const deleteContact = idContact => {
+    setContacts(prev => [...prev.filter(contact => contact.id !== idContact)]);
   };
 
-  render() {
-    const { findContact, deleteContact, submitForm } = this;
-    const contacts = this.filterContact();
-    return (
-      <div className={s.wrap}>
-        <Section title="Phonebook">
-          <FormInput onFormSubmit={submitForm} />
-        </Section>
-        <Section title="Contacts">
-          <SearchContact findContact={findContact} />
-          <Contacts contacts={contacts} deleteContact={deleteContact} />
-        </Section>
-      </div>
-    );
-  }
+  const findContact = e => {
+    setFilter(e.target.value);
+  };
+
+  return (
+    <div className={s.wrap}>
+      <Section title="Phonebook">
+        <FormInput onFormSubmit={submitForm} />
+      </Section>
+      <Section title="Contacts">
+        {contacts.length > 0 && <SearchContact findContact={findContact} />}
+        <Contacts contacts={filterContact()} deleteContact={deleteContact} />
+      </Section>
+    </div>
+  );
 }
-
-export default Form;
